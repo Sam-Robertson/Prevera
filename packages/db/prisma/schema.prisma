@@ -76,6 +76,11 @@ model Invite {
   @@index([email])
 }
 
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model Patient {
   id       String @id @default(cuid())
   clinicId String
@@ -84,6 +89,8 @@ model Patient {
   firstName String
   lastName  String
   dob       DateTime?
+
+  status PatientStatus @default(ACTIVE)
 
   // soft delete
   deletedAt DateTime?
@@ -96,6 +103,7 @@ model Patient {
   @@index([clinicId])
   @@index([lastName, firstName])
 }
+
 
 model Record {
   id String @id @default(cuid())
