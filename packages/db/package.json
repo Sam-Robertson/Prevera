@@ -1,0 +1,23 @@
+{
+  "name": "@prior-auth/db",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.27.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "prisma": "prisma",
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate",
+    "studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "prisma": "^6.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

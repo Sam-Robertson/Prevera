@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum RecordType {
+  NOTE
+}
+
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  invites Invite[]
+
+  patients Patient[]
+  records  Record[]
+}
+
+model User {
+  id       String @id @default(cuid())
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  email String   @unique
+  role  UserRole @default(STAFF)
+
+  // Cognito user unique id (sub). Nullable until they accept invite and sign in.
+  cognitoSub String? @unique
+
+  isActive Boolean @default(true)
+
+  // Records this user created (optional on Record)
+  recordsCreated Record[] @relation("UserCreatedRecords")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invite {
+  id       String @id @default(cuid())
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  email  String
+  role   UserRole     @default(STAFF)
+  status InviteStatus @default(PENDING)
+
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([email])
+}
+
+model Patient {
+  id       String @id @default(cuid())
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  firstName String
+  lastName  String
+  dob       DateTime?
+
+  // soft delete
+  deletedAt DateTime?
+
+  records Record[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([lastName, firstName])
+}
+
+model Record {
+  id String @id @default(cuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  createdByUserId String?
+  createdByUser   User?   @relation("UserCreatedRecords", fields: [createdByUserId], references: [id])
+
+  type  RecordType @default(NOTE)
+  title String?
+  body  String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([createdByUserId])
+}
