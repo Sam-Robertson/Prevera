@@ -14,6 +14,9 @@ import {
 } from "@nestjs/common";
 import { prisma, Prisma } from "@prior-auth/db";
 import { CognitoAuthGuard } from "../auth/cognito.guard";
+import { Patch } from "@nestjs/common";
+import { Delete } from "@nestjs/common";
+
 
 @Controller("patients")
 @UseGuards(CognitoAuthGuard)
@@ -163,5 +166,82 @@ export class PatientsController {
 
     return raw;
   }
+  @Patch(":id")
+async update(
+  @Req() req: any,
+  @Param("id") id: string,
+  @Body() body: { status?: "ACTIVE" | "INACTIVE"; firstName?: string; lastName?: string; dob?: string | null },
+) {
+  const sub = req?.auth?.sub;
+  if (!sub) throw new UnauthorizedException("Missing req.auth.sub");
+
+  const user = await prisma.user.findFirst({ where: { cognitoSub: sub } });
+  if (!user) throw new UnauthorizedException("No user found for cognitoSub");
+
+  // Ensure patient belongs to clinic and isn’t deleted
+  const existing = await prisma.patient.findUnique({
+    where: { id },
+    select: { id: true, clinicId: true, deletedAt: true },
+  });
+  if (!existing || existing.deletedAt || existing.clinicId !== user.clinicId) {
+    throw new NotFoundException("Patient not found");
+  }
+
+  const data: any = {};
+  if (body.status) data.status = body.status;
+
+  if (body.firstName !== undefined) {
+    const v = body.firstName.trim();
+    if (!v) throw new BadRequestException("firstName cannot be blank");
+    data.firstName = v;
+  }
+
+  if (body.lastName !== undefined) {
+    const v = body.lastName.trim();
+    if (!v) throw new BadRequestException("lastName cannot be blank");
+    data.lastName = v;
+  }
+
+  if (body.dob !== undefined) {
+    if (body.dob === null || body.dob === "") data.dob = null;
+    else {
+      const dt = new Date(String(body.dob));
+      if (Number.isNaN(dt.getTime())) throw new BadRequestException("Invalid dob");
+      data.dob = dt;
+    }
+  }
+
+  return prisma.patient.update({
+    where: { id },
+    data,
+    select: { id: true, firstName: true, lastName: true, dob: true, status: true, createdAt: true, updatedAt: true },
+  });
+}
+@Delete(":id")
+async softDelete(@Req() req: any, @Param("id") id: string) {
+  const sub = req?.auth?.sub;
+  if (!sub) throw new UnauthorizedException("Missing req.auth.sub");
+
+  const user = await prisma.user.findFirst({ where: { cognitoSub: sub } });
+  if (!user) throw new UnauthorizedException("No user found for cognitoSub");
+
+  const existing = await prisma.patient.findUnique({
+    where: { id },
+    select: { id: true, clinicId: true, deletedAt: true },
+  });
+
+  if (!existing || existing.deletedAt || existing.clinicId !== user.clinicId) {
+    throw new NotFoundException("Patient not found");
+  }
+
+  await prisma.patient.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+    select: { id: true },
+  });
+
+  return { ok: true };
+}
+
 
 }
