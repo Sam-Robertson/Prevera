@@ -18,6 +18,29 @@ import { Patch } from "@nestjs/common";
 import { Delete } from "@nestjs/common";
 
 
+function parseDateOnly(value: string): Date {
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(value);
+  if (!m) {
+    throw new BadRequestException("Invalid dob. Use YYYY-MM-DD");
+  }
+
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (
+    dt.getUTCFullYear() !== year ||
+    dt.getUTCMonth() !== month - 1 ||
+    dt.getUTCDate() !== day
+  ) {
+    throw new BadRequestException("Invalid dob. Use YYYY-MM-DD");
+  }
+
+  return dt;
+}
+
+
 @Controller("patients")
 @UseGuards(CognitoAuthGuard)
 export class PatientsController {
@@ -29,6 +52,10 @@ export class PatientsController {
       firstName: string;
       lastName: string;
       dob?: string;
+      phone?: string;
+      email?: string;
+      mrn?: string;
+      lastVisit?: string;
       status?: "ACTIVE" | "INACTIVE";
     },
   ) {
@@ -46,22 +73,30 @@ export class PatientsController {
       }
 
       const dobStr = (body.dob ?? "").trim();
-      const dob = dobStr ? new Date(dobStr) : null;
-      if (dob && Number.isNaN(dob.getTime())) {
-        throw new BadRequestException("Invalid dob. Use YYYY-MM-DD");
-      }
+      const dob = dobStr ? parseDateOnly(dobStr) : null;
+
+      const phone = (body.phone ?? "").trim() || null;
+      const email = (body.email ?? "").trim().toLowerCase() || null;
+      const mrn = (body.mrn ?? "").trim() || null;
+      const lastVisitStr = (body.lastVisit ?? "").trim();
+      const lastVisit = lastVisitStr ? parseDateOnly(lastVisitStr) : null;
 
       const status = body.status ?? "ACTIVE";
 
       return await prisma.patient.create({
-        data: { clinicId: user.clinicId, firstName, lastName, dob, status },
+        data: { clinicId: user.clinicId, firstName, lastName, dob, phone, email, mrn, lastVisit, status },
         select: {
           id: true,
           firstName: true,
           lastName: true,
           dob: true,
+          phone: true,
+          email: true,
+          mrn: true,
+          lastVisit: true,
           status: true,
           createdAt: true,
+          updatedAt: true,
         },
       });
     } catch (e: any) {
@@ -123,8 +158,13 @@ export class PatientsController {
         firstName: true,
         lastName: true,
         dob: true,
+        phone: true,
+        email: true,
+        mrn: true,
+        lastVisit: true,
         status: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -149,6 +189,10 @@ export class PatientsController {
         firstName: true,
         lastName: true,
         dob: true,
+        phone: true,
+        email: true,
+        mrn: true,
+        lastVisit: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -166,11 +210,22 @@ export class PatientsController {
 
     return raw;
   }
+
   @Patch(":id")
 async update(
   @Req() req: any,
   @Param("id") id: string,
-  @Body() body: { status?: "ACTIVE" | "INACTIVE"; firstName?: string; lastName?: string; dob?: string | null },
+  @Body()
+  body: {
+    status?: "ACTIVE" | "INACTIVE";
+    firstName?: string;
+    lastName?: string;
+    dob?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    mrn?: string | null;
+    lastVisit?: string | null;
+  },
 ) {
   const sub = req?.auth?.sub;
   if (!sub) throw new UnauthorizedException("Missing req.auth.sub");
@@ -205,16 +260,46 @@ async update(
   if (body.dob !== undefined) {
     if (body.dob === null || body.dob === "") data.dob = null;
     else {
-      const dt = new Date(String(body.dob));
-      if (Number.isNaN(dt.getTime())) throw new BadRequestException("Invalid dob");
-      data.dob = dt;
+      data.dob = parseDateOnly(String(body.dob));
     }
+  }
+
+  if (body.phone !== undefined) {
+    const v = body.phone === null ? null : String(body.phone).trim();
+    data.phone = v ? v : null;
+  }
+
+  if (body.email !== undefined) {
+    const v = body.email === null ? null : String(body.email).trim().toLowerCase();
+    data.email = v ? v : null;
+  }
+
+  if (body.mrn !== undefined) {
+    const v = body.mrn === null ? null : String(body.mrn).trim();
+    data.mrn = v ? v : null;
+  }
+
+  if (body.lastVisit !== undefined) {
+    if (body.lastVisit === null || body.lastVisit === "") data.lastVisit = null;
+    else data.lastVisit = parseDateOnly(String(body.lastVisit));
   }
 
   return prisma.patient.update({
     where: { id },
     data,
-    select: { id: true, firstName: true, lastName: true, dob: true, status: true, createdAt: true, updatedAt: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      dob: true,
+      phone: true,
+      email: true,
+      mrn: true,
+      lastVisit: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
 }
 @Delete(":id")

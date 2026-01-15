@@ -43,6 +43,14 @@ export class AuthController {
 
       const { sub, email } = auth;
 
+      const platformAdminEmailsRaw = process.env.PLATFORM_ADMIN_EMAILS ?? "";
+      const platformAdminEmails = platformAdminEmailsRaw
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+
+      const isPlatformAdmin = platformAdminEmails.includes(String(email).toLowerCase());
+
       const DEFAULT_CLINIC_ID = process.env.DEFAULT_CLINIC_ID;
       if (!DEFAULT_CLINIC_ID) {
         throw new Error("DEFAULT_CLINIC_ID env var is missing");
@@ -83,12 +91,14 @@ export class AuthController {
           email,
           isActive: true,
           clinicId: clinic.id,
+          ...(isPlatformAdmin ? ({ platformRole: "SUPER_ADMIN" } as any) : {}),
         },
         create: {
           cognitoSub: sub,
           email,
           clinicId: clinic.id,
-          role: "ADMIN",
+          role: "OWNER",
+          ...(isPlatformAdmin ? ({ platformRole: "SUPER_ADMIN" } as any) : {}),
           isActive: true,
         },
         select: {
@@ -98,7 +108,8 @@ export class AuthController {
           clinicId: true,
           cognitoSub: true,
           isActive: true,
-        },
+          platformRole: true,
+        } as any,
       });
 
       return {

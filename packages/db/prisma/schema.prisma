@@ -8,9 +8,14 @@ datasource db {
 }
 
 enum UserRole {
+  OWNER
   ADMIN
-  MANAGER
   STAFF
+}
+
+enum PlatformRole {
+  NONE
+  SUPER_ADMIN
 }
 
 enum InviteStatus {
@@ -45,10 +50,18 @@ model User {
   email String   @unique
   role  UserRole @default(STAFF)
 
+  platformRole PlatformRole @default(NONE)
+
   // Cognito user unique id (sub). Nullable until they accept invite and sign in.
   cognitoSub String? @unique
 
   isActive Boolean @default(true)
+
+  lastActiveAt DateTime?
+
+  invitesCreated  Invite[] @relation("InviteInvitedBy")
+  invitesAccepted Invite[] @relation("InviteAcceptedBy")
+  invitesRevoked  Invite[] @relation("InviteRevokedBy")
 
   // Records this user created (optional on Record)
   recordsCreated Record[] @relation("UserCreatedRecords")
@@ -65,6 +78,20 @@ model Invite {
   email  String
   role   UserRole     @default(STAFF)
   status InviteStatus @default(PENDING)
+
+  invitedByUserId String?
+  invitedByUser   User? @relation("InviteInvitedBy", fields: [invitedByUserId], references: [id])
+
+  acceptedByUserId String?
+  acceptedByUser   User? @relation("InviteAcceptedBy", fields: [acceptedByUserId], references: [id])
+  acceptedAt       DateTime?
+
+  revokedByUserId String?
+  revokedByUser   User? @relation("InviteRevokedBy", fields: [revokedByUserId], references: [id])
+  revokedAt       DateTime?
+
+  lastSentAt DateTime?
+  sendCount  Int      @default(0)
 
   tokenHash String   @unique
   expiresAt DateTime
@@ -90,6 +117,11 @@ model Patient {
   lastName  String
   dob       DateTime?
 
+  phone     String?
+  email     String?
+  mrn       String?
+  lastVisit DateTime?
+
   status PatientStatus @default(ACTIVE)
 
   // soft delete
@@ -102,6 +134,8 @@ model Patient {
 
   @@index([clinicId])
   @@index([lastName, firstName])
+  @@index([clinicId, mrn])
+  @@index([clinicId, email])
 }
 
 
