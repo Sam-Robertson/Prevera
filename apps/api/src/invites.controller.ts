@@ -9,7 +9,6 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { InviteStatus } from "@prior-auth/db";
 import crypto from "crypto";
 import { prisma } from "@prior-auth/db";
 import { CognitoAuthGuard } from "./auth/cognito.guard";
@@ -126,7 +125,7 @@ export class InvitesController {
       select: { id: true, clinicId: true, email: true, role: true, status: true, expiresAt: true },
     });
     if (!existing || existing.clinicId !== clinicId) throw new NotFoundException("Invite not found");
-    if (existing.status !== InviteStatus.PENDING) {
+    if (String(existing.status) !== "PENDING") {
       throw new BadRequestException("invite not pending");
     }
 
@@ -171,14 +170,14 @@ export class InvitesController {
     const existing = await prisma.invite.findUnique({ where: { id }, select: { id: true, clinicId: true, status: true } });
     if (!existing || existing.clinicId !== clinicId) throw new NotFoundException("Invite not found");
 
-    if (existing.status !== InviteStatus.PENDING) {
+    if (String(existing.status) !== "PENDING") {
       throw new BadRequestException("invite not pending");
     }
 
     await prisma.invite.update({
       where: { id },
       data: {
-        status: InviteStatus.REVOKED,
+        status: "REVOKED" as any,
         revokedAt: new Date(),
         revokedByUserId: req.user.id,
       } as any,
@@ -197,7 +196,7 @@ export class InvitesController {
 
     const invite = await prisma.invite.findUnique({ where: { tokenHash } });
     if (!invite) throw new BadRequestException("invalid token");
-    if (invite.status !== InviteStatus.PENDING) throw new BadRequestException("invite not pending");
+    if (String(invite.status) !== "PENDING") throw new BadRequestException("invite not pending");
     if (invite.expiresAt.getTime() < Date.now()) throw new BadRequestException("invite expired");
 
     // Create or update the user (invite-only onboarding)
@@ -218,7 +217,7 @@ export class InvitesController {
 
     await prisma.invite.update({
       where: { id: invite.id },
-      data: { status: InviteStatus.ACCEPTED },
+      data: { status: "ACCEPTED" as any },
     });
 
     return { ok: true, userId: user.id, clinicId: user.clinicId, role: user.role };
@@ -237,7 +236,7 @@ export class InvitesController {
     const tokenHash = hashToken(token);
     const invite = await prisma.invite.findUnique({ where: { tokenHash } });
     if (!invite) throw new BadRequestException("invalid token");
-    if (invite.status !== InviteStatus.PENDING) throw new BadRequestException("invite not pending");
+    if (String(invite.status) !== "PENDING") throw new BadRequestException("invite not pending");
     if (invite.expiresAt.getTime() < Date.now()) throw new BadRequestException("invite expired");
 
     if (normalizeEmail(invite.email) !== normalizeEmail(email)) {
@@ -275,7 +274,7 @@ export class InvitesController {
     await prisma.invite.update({
       where: { id: invite.id },
       data: {
-        status: InviteStatus.ACCEPTED,
+        status: "ACCEPTED" as any,
         acceptedAt: new Date(),
         acceptedByUserId: user.id,
       } as any,
