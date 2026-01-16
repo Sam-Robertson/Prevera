@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "PORT=3002 ts-node -P tsconfig.json src/main.ts"
+    "dev": "pnpm --filter @prior-auth/db build && PORT=3002 ts-node -P tsconfig.json src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "start:ts": "ts-node -P tsconfig.json src/main.ts"
   },
   "keywords": [],
   "author": "",
