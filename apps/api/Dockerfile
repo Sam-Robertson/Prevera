@@ -25,6 +25,7 @@ RUN pnpm --filter @prior-auth/db build
 RUN pnpm --filter api build
 
 ENV NODE_ENV=production
+ENV PORT=3002
 EXPOSE 3002
 
 CMD ["pnpm", "--filter", "api", "start"]
